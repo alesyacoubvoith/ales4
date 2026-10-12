@@ -32,14 +32,18 @@ def new_id():
 
 
 # ---------------- Preset accounts ----------------
-PRESET_USERS = [
-    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT Admin"},
-    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT Admin"},
-    {"id": "EMP-001", "name": "Marie Dupont", "role": "employee", "title": "Responsable Ventes"},
-    {"id": "EMP-002", "name": "Lucas Martin", "role": "employee", "title": "Opérateur Logistique"},
-    {"id": "EMP-003", "name": "Sophie Bernard", "role": "employee", "title": "Chargée RH"},
+SEED_ADMINS = [
+    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT"},
+    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT"},
+    {"id": "EMP-IT", "name": "Admin IT", "role": "admin", "title": "Service IT"},
 ]
-USERS_BY_ID = {u["id"]: u for u in PRESET_USERS}
+# Noms utilisés uniquement pour les tickets de démonstration.
+SEED_NAMES = {"EMP-001": "Marie Dupont", "EMP-002": "Lucas Martin", "EMP-003": "Sophie Bernard",
+              "EMP-ALEX": "Alex", "EMP-SAM": "Sam", "EMP-IT": "Admin IT"}
+
+
+async def get_user(uid):
+    return await db.users.find_one({"id": uid}, {"_id": 0})
 
 TICKET_CATEGORIES = ["Matériel / PC", "Réseau / Wifi", "Logiciel / Licence",
                      "Imprimante / Périphérique", "Accès / Identifiants", "Autre"]
@@ -53,6 +57,13 @@ STOCK_CATEGORIES = ["Câbles & Adaptateurs", "Écrans & Moniteurs", "Claviers & 
 # ---------------- Models ----------------
 class LoginInput(BaseModel):
     employee_id: str
+
+
+class UserCreate(BaseModel):
+    id: str
+    name: str
+    role: str = "employee"
+    title: str = ""
 
 
 class TicketCreate(BaseModel):
@@ -117,14 +128,42 @@ async def meta():
 
 @api_router.get("/users")
 async def get_users():
-    return PRESET_USERS
+    return await db.users.find({}, {"_id": 0}).sort("role", 1).to_list(1000)
+
+
+@api_router.post("/users")
+async def create_user(payload: UserCreate):
+    uid = payload.id.strip().upper()
+    if not uid or not payload.name.strip():
+        raise HTTPException(status_code=400, detail="ID et nom requis")
+    if payload.role not in ("admin", "employee"):
+        raise HTTPException(status_code=400, detail="Rôle invalide")
+    if await db.users.find_one({"id": uid}):
+        raise HTTPException(status_code=409, detail="Cet ID existe déjà")
+    doc = {"id": uid, "name": payload.name.strip(), "role": payload.role, "title": payload.title.strip()}
+    await db.users.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str):
+    uid = user_id.strip().upper()
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Compte introuvable")
+    admins = await db.users.count_documents({"role": "admin"})
+    if target["role"] == "admin" and admins <= 1:
+        raise HTTPException(status_code=400, detail="Impossible de supprimer le dernier admin")
+    await db.users.delete_one({"id": uid})
+    return {"ok": True}
 
 
 # ---------------- Auth (ID only) ----------------
 @api_router.post("/auth/login")
 async def login(payload: LoginInput, request: Request):
     uid = payload.employee_id.strip().upper()
-    user = USERS_BY_ID.get(uid)
+    user = await get_user(uid)
     if not user:
         raise HTTPException(status_code=404, detail="ID employé introuvable")
     ua = request.headers.get("user-agent", "")
@@ -158,7 +197,7 @@ async def list_tickets(creator_id: Optional[str] = None, status: Optional[str] =
 
 @api_router.post("/tickets")
 async def create_ticket(payload: TicketCreate):
-    creator = USERS_BY_ID.get(payload.creator_id)
+    creator = await get_user(payload.creator_id)
     doc = {
         "id": new_id(),
         "title": payload.title,
@@ -298,6 +337,8 @@ async def stats():
 
 # ---------------- Seed ----------------
 async def seed():
+    if await db.users.count_documents({}) == 0:
+        await db.users.insert_many([dict(a) for a in SEED_ADMINS])
     if await db.tickets.count_documents({}) == 0:
         base = datetime.now(timezone.utc)
         samples = [
@@ -317,7 +358,7 @@ async def seed():
             docs.append({
                 "id": new_id(), "title": title, "description": desc, "category": cat,
                 "priority": prio, "status": st, "creator_id": cid,
-                "creator_name": USERS_BY_ID[cid]["name"], "assigned_to": assignee,
+                "creator_name": SEED_NAMES.get(cid, cid), "assigned_to": assignee,
                 "resolution_notes": "Résolu, matériel remplacé." if st == "Résolu" else "",
                 "created_at": created.isoformat(), "updated_at": created.isoformat(),
             })

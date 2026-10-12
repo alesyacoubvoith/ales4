@@ -1,5 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
-import { Headset, LayoutDashboard, Ticket, Boxes, BellRing, ScrollText, PlusCircle, User } from "lucide-react";
+import { Headset, LayoutDashboard, Ticket, Boxes, BellRing, ScrollText, PlusCircle, User, UsersRound } from "lucide-react";
 
 const adminNav = [
   { key: "overview", label: "Tableau de bord", icon: LayoutDashboard },
@@ -7,6 +7,7 @@ const adminNav = [
   { key: "inventory", label: "Gestion du stock", icon: Boxes },
   { key: "reminders", label: "Alertes & rappels", icon: BellRing },
   { key: "logs", label: "Logs de connexion", icon: ScrollText },
+  { key: "accounts", label: "Comptes & accès", icon: UsersRound },
 ];
 
 const employeeNav = [

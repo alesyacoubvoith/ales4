@@ -29,14 +29,17 @@ def new_id():
     return str(uuid.uuid4())
 
 
-PRESET_USERS = [
-    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT Admin"},
-    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT Admin"},
-    {"id": "EMP-001", "name": "Marie Dupont", "role": "employee", "title": "Responsable Ventes"},
-    {"id": "EMP-002", "name": "Lucas Martin", "role": "employee", "title": "Opérateur Logistique"},
-    {"id": "EMP-003", "name": "Sophie Bernard", "role": "employee", "title": "Chargée RH"},
+SEED_ADMINS = [
+    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT"},
+    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT"},
+    {"id": "EMP-IT", "name": "Admin IT", "role": "admin", "title": "Service IT"},
 ]
-USERS_BY_ID = {u["id"]: u for u in PRESET_USERS}
+SEED_NAMES = {"EMP-001": "Marie Dupont", "EMP-002": "Lucas Martin", "EMP-003": "Sophie Bernard",
+              "EMP-ALEX": "Alex", "EMP-SAM": "Sam", "EMP-IT": "Admin IT"}
+
+
+def find_user(uid):
+    return next((u for u in DB["users"] if u["id"] == uid), None)
 
 TICKET_CATEGORIES = ["Matériel / PC", "Réseau / Wifi", "Logiciel / Licence",
                      "Imprimante / Périphérique", "Accès / Identifiants", "Autre"]
@@ -46,7 +49,7 @@ STOCK_CATEGORIES = ["Câbles & Adaptateurs", "Écrans & Moniteurs", "Claviers & 
                     "PC Portable / Tour", "Composants / RAM / SSD", "Toners & Cartouches",
                     "Casques & Audio"]
 
-DB = {"tickets": [], "inventory": [], "reminders": [], "logs": []}
+DB = {"users": [], "tickets": [], "inventory": [], "reminders": [], "logs": []}
 
 
 def save():
@@ -55,6 +58,7 @@ def save():
 
 
 def seed():
+    DB["users"] = [dict(a) for a in SEED_ADMINS]
     base = datetime.now(timezone.utc)
     samples = [
         ("PC ne démarre plus au bureau 204", "Écran noir au démarrage, voyant orange clignote.", "Matériel / PC", "Haute", "En cours", "EMP-001", "EMP-ALEX", 2),
@@ -71,7 +75,7 @@ def seed():
         DB["tickets"].append({
             "id": new_id(), "title": title, "description": desc, "category": cat,
             "priority": prio, "status": st, "creator_id": cid,
-            "creator_name": USERS_BY_ID[cid]["name"], "assigned_to": assignee,
+            "creator_name": SEED_NAMES.get(cid, cid), "assigned_to": assignee,
             "resolution_notes": "Résolu, matériel remplacé." if st == "Résolu" else "",
             "created_at": created.isoformat(), "updated_at": created.isoformat(),
         })
@@ -112,6 +116,9 @@ def load():
     global DB
     if DATA_FILE.exists():
         DB = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        if not DB.get("users"):
+            DB["users"] = [dict(a) for a in SEED_ADMINS]
+            save()
     else:
         seed()
 
@@ -124,6 +131,13 @@ api = APIRouter(prefix="/api")
 
 class LoginInput(BaseModel):
     employee_id: str
+
+
+class UserCreate(BaseModel):
+    id: str
+    name: str
+    role: str = "employee"
+    title: str = ""
 
 
 class TicketCreate(BaseModel):
@@ -178,13 +192,42 @@ def meta():
 
 @api.get("/users")
 def users():
-    return PRESET_USERS
+    return sorted(DB["users"], key=lambda u: u["role"])
+
+
+@api.post("/users")
+def create_user(p: UserCreate):
+    uid = p.id.strip().upper()
+    if not uid or not p.name.strip():
+        raise HTTPException(status_code=400, detail="ID et nom requis")
+    if p.role not in ("admin", "employee"):
+        raise HTTPException(status_code=400, detail="Rôle invalide")
+    if find_user(uid):
+        raise HTTPException(status_code=409, detail="Cet ID existe déjà")
+    doc = {"id": uid, "name": p.name.strip(), "role": p.role, "title": p.title.strip()}
+    DB["users"].append(doc)
+    save()
+    return doc
+
+
+@api.delete("/users/{user_id}")
+def delete_user(user_id: str):
+    uid = user_id.strip().upper()
+    target = find_user(uid)
+    if not target:
+        raise HTTPException(status_code=404, detail="Compte introuvable")
+    admins = len([u for u in DB["users"] if u["role"] == "admin"])
+    if target["role"] == "admin" and admins <= 1:
+        raise HTTPException(status_code=400, detail="Impossible de supprimer le dernier admin")
+    DB["users"] = [u for u in DB["users"] if u["id"] != uid]
+    save()
+    return {"ok": True}
 
 
 @api.post("/auth/login")
 def login(payload: LoginInput, request: Request):
     uid = payload.employee_id.strip().upper()
-    user = USERS_BY_ID.get(uid)
+    user = find_user(uid)
     if not user:
         raise HTTPException(status_code=404, detail="ID employé introuvable")
     ua = request.headers.get("user-agent", "")
@@ -209,7 +252,7 @@ def list_tickets(creator_id: Optional[str] = None, status: Optional[str] = None)
 
 @api.post("/tickets")
 def create_ticket(p: TicketCreate):
-    creator = USERS_BY_ID.get(p.creator_id)
+    creator = find_user(p.creator_id)
     doc = {"id": new_id(), "title": p.title, "description": p.description, "category": p.category,
            "priority": p.priority, "status": "Nouveau", "creator_id": p.creator_id,
            "creator_name": creator["name"] if creator else p.creator_id, "assigned_to": None,
