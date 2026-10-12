@@ -1,0 +1,56 @@
+========================================================
+  Alex & Co — Plateforme IT Helpdesk & Stock (LOCAL)
+========================================================
+
+SUPER SIMPLE — tu as juste besoin d'installer PYTHON une fois.
+(Pas de Node, pas de MongoDB, pas de yarn. Rien d'autre.)
+
+------------------------------------------------
+ÉTAPE 1 — Installer Python (une seule fois)
+------------------------------------------------
+- Va sur : https://www.python.org/downloads/
+- Clique sur "Download Python".
+- Lance l'installateur.
+- !!! TRÈS IMPORTANT !!! Sur le 1er écran, COCHE la case
+  "Add Python to PATH" avant de cliquer sur "Install Now".
+- Attends la fin, clique "Close".
+
+------------------------------------------------
+ÉTAPE 2 — Lancer l'application
+------------------------------------------------
+- Double-clique sur le fichier  LANCER.bat
+- Une fenêtre noire s'ouvre, installe 2 petits trucs (1re fois),
+  puis démarre. NE FERME PAS cette fenêtre.
+- Ton navigateur s'ouvre tout seul sur http://localhost:8001
+  (sinon ouvre-le toi-même).
+
+------------------------------------------------
+ÉTAPE 3 — Partager avec tes collègues
+------------------------------------------------
+- Ils doivent être sur le MÊME réseau / Wi-Fi que toi.
+- Trouve ton IP : ouvre "cmd", tape  ipconfig , regarde "Adresse IPv4"
+  (ex : 192.168.1.42).
+- Tes collègues ouvrent dans leur navigateur :
+      http://192.168.1.42:8001
+  (remplace par TON IP)
+- Si Windows affiche "Autoriser l'accès ?" => clique AUTORISER.
+
+------------------------------------------------
+SE CONNECTER (pas de mot de passe, juste un ID)
+------------------------------------------------
+- EMP-ALEX   -> Toi (admin, voit tout)
+- EMP-SAM    -> Ton collègue (admin)
+- EMP-001    -> Marie Dupont (employée)
+- EMP-002    -> Lucas Martin (employé)
+- EMP-003    -> Sophie Bernard (employée)
+
+------------------------------------------------
+BON À SAVOIR
+------------------------------------------------
+- Toutes les données (tickets, stock, rappels) sont enregistrées
+  dans le fichier  data.json  à côté de LANCER.bat.
+  -> Sauvegarde ce fichier pour garder tes données.
+  -> Supprime-le pour repartir des données de démo.
+- Pour éteindre : ferme la fenêtre noire.
+
+Un souci ? Renvoie une capture d'écran de la fenêtre noire.
