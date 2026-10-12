@@ -8,7 +8,7 @@ import { UsersRound, UserPlus, Trash2, ShieldCheck, User } from "lucide-react";
 export const AccountsView = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ id: "", name: "", role: "employee", title: "" });
+  const [form, setForm] = useState({ id: "", name: "", role: "employee", title: "", can_access_parc: false });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -24,7 +24,7 @@ export const AccountsView = () => {
     try {
       await endpoints.createUser(form);
       toast.success(`Compte ${form.id.toUpperCase()} créé`);
-      setForm({ id: "", name: "", role: "employee", title: "" });
+      setForm({ id: "", name: "", role: "employee", title: "", can_access_parc: false });
       load();
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Erreur lors de la création");
@@ -84,6 +84,14 @@ export const AccountsView = () => {
                 <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">Poste (optionnel)</label>
                 <input data-testid="account-title-input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Responsable Ventes" className="mt-1.5 w-full h-10 rounded-lg border border-slate-200 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
               </div>
+              {form.role === "employee" ? (
+                <label data-testid="account-parc-toggle" className="flex items-center gap-2.5 rounded-lg border border-slate-200 p-3 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <input type="checkbox" data-testid="account-parc-checkbox" checked={form.can_access_parc} onChange={(e) => setForm({ ...form, can_access_parc: e.target.checked })} className="h-4 w-4 accent-blue-600" />
+                  <span className="text-sm text-slate-700">Accès au parc informatique</span>
+                </label>
+              ) : (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">Les admins ont accès à tout, y compris le parc informatique.</div>
+              )}
               <button data-testid="account-create-button" onClick={create} disabled={saving} className="w-full h-10 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
                 <UserPlus className="h-4 w-4" /> Créer le compte
               </button>
@@ -119,6 +127,9 @@ const AccountGroup = ({ title, icon: Icon, tone, list, currentId, onDelete }) =>
             <div className="text-xs text-slate-500 truncate">{u.title || "—"}</div>
           </div>
           <span className="font-mono text-xs text-slate-400">{u.id}</span>
+          {u.role === "employee" && u.can_access_parc && (
+            <span className="text-[10px] uppercase tracking-wide font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">Parc</span>
+          )}
           <button data-testid={`account-delete-${u.id}`} onClick={() => onDelete(u)} disabled={u.id === currentId} className="h-8 w-8 rounded-md flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={u.id === currentId ? "Vous ne pouvez pas supprimer votre propre compte" : "Supprimer"}>
             <Trash2 className="h-4 w-4" />
           </button>

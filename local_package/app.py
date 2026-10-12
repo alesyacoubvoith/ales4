@@ -6,12 +6,14 @@ Lancement : py -m uvicorn app:app --host 0.0.0.0 --port 8001
 """
 from fastapi import FastAPI, APIRouter, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import json
+import io
 import uuid
 import threading
 
@@ -30,9 +32,9 @@ def new_id():
 
 
 SEED_ADMINS = [
-    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT"},
-    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT"},
-    {"id": "EMP-IT", "name": "Admin IT", "role": "admin", "title": "Service IT"},
+    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT", "can_access_parc": True},
+    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT", "can_access_parc": True},
+    {"id": "EMP-IT", "name": "Admin IT", "role": "admin", "title": "Service IT", "can_access_parc": True},
 ]
 SEED_NAMES = {"EMP-001": "Marie Dupont", "EMP-002": "Lucas Martin", "EMP-003": "Sophie Bernard",
               "EMP-ALEX": "Alex", "EMP-SAM": "Sam", "EMP-IT": "Admin IT"}
@@ -48,8 +50,10 @@ TICKET_STATUSES = ["Nouveau", "En cours", "En attente pièce", "Résolu", "Ferm�
 STOCK_CATEGORIES = ["Câbles & Adaptateurs", "Écrans & Moniteurs", "Claviers & Souris",
                     "PC Portable / Tour", "Composants / RAM / SSD", "Toners & Cartouches",
                     "Casques & Audio"]
+ASSET_TYPES = ["Ordinateur", "Imprimante", "Tablette"]
+ASSET_STATUSES = ["En service", "En stock", "En panne", "Réformé"]
 
-DB = {"users": [], "tickets": [], "inventory": [], "reminders": [], "logs": []}
+DB = {"users": [], "tickets": [], "inventory": [], "reminders": [], "logs": [], "assets": []}
 
 
 def save():
@@ -109,6 +113,19 @@ def seed():
             "due_date": (base + timedelta(days=days)).date().isoformat(),
             "category": cat, "notes": "", "done": False, "created_at": now_iso(),
         })
+    assets = [
+        ("PC-BUREAU-204", "Ordinateur", "Dell", "OptiPlex 7090", "DL7090-204", "Marie Dupont", "En service", 400),
+        ("PC-PORT-ALEX", "Ordinateur", "Lenovo", "ThinkPad T14", "LN-T14-001", "Alex", "En service", 180),
+        ("IMP-ETAGE2", "Imprimante", "HP", "LaserJet Pro M404", "HP-M404-02", "Service commun", "En panne", 600),
+        ("TAB-LOGISTIQUE", "Tablette", "Samsung", "Galaxy Tab A8", "SM-TABA8-07", "Lucas Martin", "En service", 90),
+        ("PC-ACCUEIL", "Ordinateur", "HP", "ProDesk 400", "HP-PD400-11", "Accueil", "En service", 500),
+        ("IMP-DIRECTION", "Imprimante", "Brother", "MFC-L2750DW", "BR-L2750-03", "Direction", "En service", 300),
+        ("TAB-DEMO", "Tablette", "Apple", "iPad 9e gen", "AP-IPAD9-02", "Stock", "En stock", 60),
+    ]
+    DB["assets"] = [{"id": new_id(), "name": n, "type": t, "brand": b, "model": m, "serial": s,
+                     "assigned_to": a, "status": st,
+                     "purchase_date": (base - timedelta(days=d)).date().isoformat(),
+                     "notes": "", "created_at": now_iso()} for n, t, b, m, s, a, st, d in assets]
     save()
 
 
@@ -119,6 +136,7 @@ def load():
         if not DB.get("users"):
             DB["users"] = [dict(a) for a in SEED_ADMINS]
             save()
+        DB.setdefault("assets", [])
     else:
         seed()
 
@@ -138,6 +156,31 @@ class UserCreate(BaseModel):
     name: str
     role: str = "employee"
     title: str = ""
+    can_access_parc: bool = False
+
+
+class AssetCreate(BaseModel):
+    name: str
+    type: str
+    brand: str = ""
+    model: str = ""
+    serial: str = ""
+    assigned_to: str = ""
+    status: str = "En service"
+    purchase_date: Optional[str] = None
+    notes: str = ""
+
+
+class AssetUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial: Optional[str] = None
+    assigned_to: Optional[str] = None
+    status: Optional[str] = None
+    purchase_date: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class TicketCreate(BaseModel):
@@ -187,7 +230,8 @@ class ReminderCreate(BaseModel):
 @api.get("/meta")
 def meta():
     return {"ticket_categories": TICKET_CATEGORIES, "ticket_priorities": TICKET_PRIORITIES,
-            "ticket_statuses": TICKET_STATUSES, "stock_categories": STOCK_CATEGORIES}
+            "ticket_statuses": TICKET_STATUSES, "stock_categories": STOCK_CATEGORIES,
+            "asset_types": ASSET_TYPES, "asset_statuses": ASSET_STATUSES}
 
 
 @api.get("/users")
@@ -204,7 +248,8 @@ def create_user(p: UserCreate):
         raise HTTPException(status_code=400, detail="Rôle invalide")
     if find_user(uid):
         raise HTTPException(status_code=409, detail="Cet ID existe déjà")
-    doc = {"id": uid, "name": p.name.strip(), "role": p.role, "title": p.title.strip()}
+    doc = {"id": uid, "name": p.name.strip(), "role": p.role, "title": p.title.strip(),
+           "can_access_parc": True if p.role == "admin" else bool(p.can_access_parc)}
     DB["users"].append(doc)
     save()
     return doc
@@ -351,6 +396,63 @@ def delete_reminder(reminder_id: str):
 @api.get("/logs")
 def list_logs():
     return sorted(DB["logs"], key=lambda l: l["login_time"], reverse=True)[:500]
+
+
+@api.get("/assets")
+def list_assets():
+    return sorted(DB["assets"], key=lambda a: a["name"])
+
+
+@api.get("/assets/export")
+def export_assets():
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Parc informatique"
+    ws.append(["Nom", "Type", "Marque", "Modèle", "N° série", "Affecté à", "Statut", "Date d'achat", "Notes"])
+    for a in sorted(DB["assets"], key=lambda x: x.get("type", "")):
+        ws.append([a.get("name", ""), a.get("type", ""), a.get("brand", ""), a.get("model", ""),
+                   a.get("serial", ""), a.get("assigned_to", ""), a.get("status", ""),
+                   a.get("purchase_date") or "", a.get("notes", "")])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=parc-informatique.xlsx"},
+    )
+
+
+@api.post("/assets")
+def create_asset(p: AssetCreate):
+    doc = p.model_dump()
+    doc.update({"id": new_id(), "created_at": now_iso()})
+    DB["assets"].append(doc)
+    save()
+    return doc
+
+
+@api.patch("/assets/{asset_id}")
+def update_asset(asset_id: str, p: AssetUpdate):
+    for a in DB["assets"]:
+        if a["id"] == asset_id:
+            for k, v in p.model_dump().items():
+                if v is not None:
+                    a[k] = v
+            save()
+            return a
+    raise HTTPException(status_code=404, detail="Matériel introuvable")
+
+
+@api.delete("/assets/{asset_id}")
+def delete_asset(asset_id: str):
+    before = len(DB["assets"])
+    DB["assets"] = [a for a in DB["assets"] if a["id"] != asset_id]
+    if len(DB["assets"]) == before:
+        raise HTTPException(status_code=404, detail="Matériel introuvable")
+    save()
+    return {"ok": True}
 
 
 @api.get("/stats")

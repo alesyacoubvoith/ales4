@@ -1,14 +1,17 @@
 import { useAuth } from "@/context/AuthContext";
-import { Headset, LayoutDashboard, Ticket, Boxes, BellRing, ScrollText, PlusCircle, User, UsersRound } from "lucide-react";
+import { Headset, LayoutDashboard, Ticket, Boxes, BellRing, ScrollText, PlusCircle, User, UsersRound, MonitorSmartphone } from "lucide-react";
 
 const adminNav = [
   { key: "overview", label: "Tableau de bord", icon: LayoutDashboard },
   { key: "tickets", label: "Tous les tickets", icon: Ticket },
   { key: "inventory", label: "Gestion du stock", icon: Boxes },
+  { key: "parc", label: "Parc informatique", icon: MonitorSmartphone },
   { key: "reminders", label: "Alertes & rappels", icon: BellRing },
   { key: "logs", label: "Logs de connexion", icon: ScrollText },
   { key: "accounts", label: "Comptes & accès", icon: UsersRound },
 ];
+
+const parcItem = { key: "parc", label: "Parc informatique", icon: MonitorSmartphone };
 
 const employeeNav = [
   { key: "mytickets", label: "Mes tickets", icon: Ticket },
@@ -16,9 +19,16 @@ const employeeNav = [
   { key: "profile", label: "Mon profil", icon: User },
 ];
 
+function buildNav(isAdmin, user) {
+  if (isAdmin) return adminNav;
+  const nav = [...employeeNav];
+  if (user?.can_access_parc) nav.splice(2, 0, parcItem);
+  return nav;
+}
+
 export const Sidebar = ({ active, setActive }) => {
-  const { isAdmin } = useAuth();
-  const nav = isAdmin ? adminNav : employeeNav;
+  const { isAdmin, user } = useAuth();
+  const nav = buildNav(isAdmin, user);
   return (
     <aside className="hidden lg:flex lg:w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-200">
@@ -57,8 +67,8 @@ export const Sidebar = ({ active, setActive }) => {
 };
 
 export const MobileNav = ({ active, setActive }) => {
-  const { isAdmin } = useAuth();
-  const nav = isAdmin ? adminNav : employeeNav;
+  const { isAdmin, user } = useAuth();
+  const nav = buildNav(isAdmin, user);
   return (
     <div className="lg:hidden flex gap-1 overflow-x-auto px-3 py-2 bg-white border-b border-slate-200">
       {nav.map((item) => {

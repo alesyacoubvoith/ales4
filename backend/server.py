@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -9,6 +10,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Annotated
 from pydantic import BeforeValidator
 import uuid
+import io
 from datetime import datetime, timezone, timedelta
 
 
@@ -31,11 +33,31 @@ def new_id():
     return str(uuid.uuid4())
 
 
+def assets_xlsx(assets):
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Parc informatique"
+    ws.append(["Nom", "Type", "Marque", "Modèle", "N° série", "Affecté à", "Statut", "Date d'achat", "Notes"])
+    for a in assets:
+        ws.append([a.get("name", ""), a.get("type", ""), a.get("brand", ""), a.get("model", ""),
+                   a.get("serial", ""), a.get("assigned_to", ""), a.get("status", ""),
+                   a.get("purchase_date") or "", a.get("notes", "")])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=parc-informatique.xlsx"},
+    )
+
+
 # ---------------- Preset accounts ----------------
 SEED_ADMINS = [
-    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT"},
-    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT"},
-    {"id": "EMP-IT", "name": "Admin IT", "role": "admin", "title": "Service IT"},
+    {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT", "can_access_parc": True},
+    {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT", "can_access_parc": True},
+    {"id": "EMP-IT", "name": "Admin IT", "role": "admin", "title": "Service IT", "can_access_parc": True},
 ]
 # Noms utilisés uniquement pour les tickets de démonstration.
 SEED_NAMES = {"EMP-001": "Marie Dupont", "EMP-002": "Lucas Martin", "EMP-003": "Sophie Bernard",
@@ -52,6 +74,8 @@ TICKET_STATUSES = ["Nouveau", "En cours", "En attente pièce", "Résolu", "Ferm�
 STOCK_CATEGORIES = ["Câbles & Adaptateurs", "Écrans & Moniteurs", "Claviers & Souris",
                     "PC Portable / Tour", "Composants / RAM / SSD", "Toners & Cartouches",
                     "Casques & Audio"]
+ASSET_TYPES = ["Ordinateur", "Imprimante", "Tablette"]
+ASSET_STATUSES = ["En service", "En stock", "En panne", "Réformé"]
 
 
 # ---------------- Models ----------------
@@ -64,6 +88,31 @@ class UserCreate(BaseModel):
     name: str
     role: str = "employee"
     title: str = ""
+    can_access_parc: bool = False
+
+
+class AssetCreate(BaseModel):
+    name: str
+    type: str
+    brand: str = ""
+    model: str = ""
+    serial: str = ""
+    assigned_to: str = ""
+    status: str = "En service"
+    purchase_date: Optional[str] = None
+    notes: str = ""
+
+
+class AssetUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial: Optional[str] = None
+    assigned_to: Optional[str] = None
+    status: Optional[str] = None
+    purchase_date: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class TicketCreate(BaseModel):
@@ -123,6 +172,8 @@ async def meta():
         "ticket_priorities": TICKET_PRIORITIES,
         "ticket_statuses": TICKET_STATUSES,
         "stock_categories": STOCK_CATEGORIES,
+        "asset_types": ASSET_TYPES,
+        "asset_statuses": ASSET_STATUSES,
     }
 
 
@@ -140,7 +191,9 @@ async def create_user(payload: UserCreate):
         raise HTTPException(status_code=400, detail="Rôle invalide")
     if await db.users.find_one({"id": uid}):
         raise HTTPException(status_code=409, detail="Cet ID existe déjà")
-    doc = {"id": uid, "name": payload.name.strip(), "role": payload.role, "title": payload.title.strip()}
+    parc = True if payload.role == "admin" else bool(payload.can_access_parc)
+    doc = {"id": uid, "name": payload.name.strip(), "role": payload.role,
+           "title": payload.title.strip(), "can_access_parc": parc}
     await db.users.insert_one(doc)
     doc.pop("_id", None)
     return doc
@@ -266,6 +319,47 @@ async def delete_inventory(item_id: str):
     res = await db.inventory.delete_one({"id": item_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Article introuvable")
+    return {"ok": True}
+
+
+# ---------------- Parc informatique (assets) ----------------
+@api_router.get("/assets")
+async def list_assets():
+    return await db.assets.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+
+
+@api_router.get("/assets/export")
+async def export_assets():
+    assets = await db.assets.find({}, {"_id": 0}).sort("type", 1).to_list(1000)
+    return assets_xlsx(assets)
+
+
+@api_router.post("/assets")
+async def create_asset(payload: AssetCreate):
+    doc = payload.model_dump()
+    doc["id"] = new_id()
+    doc["created_at"] = now_iso()
+    await db.assets.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api_router.patch("/assets/{asset_id}")
+async def update_asset(asset_id: str, payload: AssetUpdate):
+    update = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="Aucune donnée")
+    res = await db.assets.update_one({"id": asset_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Matériel introuvable")
+    return await db.assets.find_one({"id": asset_id}, {"_id": 0})
+
+
+@api_router.delete("/assets/{asset_id}")
+async def delete_asset(asset_id: str):
+    res = await db.assets.delete_one({"id": asset_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Matériel introuvable")
     return {"ok": True}
 
 
@@ -407,6 +501,23 @@ async def seed():
                 "created_at": now_iso(),
             })
         await db.reminders.insert_many(docs)
+
+    if await db.assets.count_documents({}) == 0:
+        base = datetime.now(timezone.utc)
+        assets = [
+            ("PC-BUREAU-204", "Ordinateur", "Dell", "OptiPlex 7090", "DL7090-204", "Marie Dupont", "En service", 400),
+            ("PC-PORT-ALEX", "Ordinateur", "Lenovo", "ThinkPad T14", "LN-T14-001", "Alex", "En service", 180),
+            ("IMP-ETAGE2", "Imprimante", "HP", "LaserJet Pro M404", "HP-M404-02", "Service commun", "En panne", 600),
+            ("TAB-LOGISTIQUE", "Tablette", "Samsung", "Galaxy Tab A8", "SM-TABA8-07", "Lucas Martin", "En service", 90),
+            ("PC-ACCUEIL", "Ordinateur", "HP", "ProDesk 400", "HP-PD400-11", "Accueil", "En service", 500),
+            ("IMP-DIRECTION", "Imprimante", "Brother", "MFC-L2750DW", "BR-L2750-03", "Direction", "En service", 300),
+            ("TAB-DEMO", "Tablette", "Apple", "iPad 9e gen", "AP-IPAD9-02", "Stock", "En stock", 60),
+        ]
+        docs = [{"id": new_id(), "name": n, "type": t, "brand": b, "model": m, "serial": s,
+                 "assigned_to": a, "status": st,
+                 "purchase_date": (base - timedelta(days=d)).date().isoformat(),
+                 "notes": "", "created_at": now_iso()} for n, t, b, m, s, a, st, d in assets]
+        await db.assets.insert_many(docs)
 
 
 app.include_router(api_router)

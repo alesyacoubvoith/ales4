@@ -9,6 +9,7 @@ import { InventoryView } from "@/components/views/InventoryView";
 import { RemindersView } from "@/components/views/RemindersView";
 import { LogsView } from "@/components/views/LogsView";
 import { AccountsView } from "@/components/views/AccountsView";
+import { ParcView } from "@/components/views/ParcView";
 import { ProfileView } from "@/components/views/ProfileView";
 import { NewTicketView } from "@/components/views/NewTicketView";
 
@@ -26,6 +27,7 @@ export default function Dashboard() {
       case "reminders": return <RemindersView />;
       case "logs": return <LogsView />;
       case "accounts": return <AccountsView />;
+      case "parc": return <ParcView />;
       case "mytickets": return <TicketsView key={refreshKey} adminMode={false} />;
       case "new": return <NewTicketView onDone={() => { setRefreshKey((k) => k + 1); setActive("mytickets"); }} />;
       case "profile": return <ProfileView />;

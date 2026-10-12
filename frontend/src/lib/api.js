@@ -24,4 +24,9 @@ export const endpoints = {
   deleteReminder: (id) => api.delete(`/reminders/${id}`),
   logs: () => api.get("/logs"),
   stats: () => api.get("/stats"),
+  assets: () => api.get("/assets"),
+  createAsset: (data) => api.post("/assets", data),
+  updateAsset: (id, data) => api.patch(`/assets/${id}`, data),
+  deleteAsset: (id) => api.delete(`/assets/${id}`),
+  exportAssets: () => api.get("/assets/export", { responseType: "blob" }),
 };
