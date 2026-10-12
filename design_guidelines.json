@@ -1,0 +1,165 @@
+{
+  "project_name": "ITHelpdesk & Inventory Platform - Alex IT Support",
+  "app_type": "dashboard / internal IT helpdesk SaaS app",
+  "theme": "Corporate Blue Light Clean Theme",
+  "language": "French (UI & labels strictly in French as requested: 'Clair et épuré, style corporate bleu')",
+  "archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST CORPORATE BLUE",
+  "emotional_tone": "Trustworthy, hyper-efficient, crisp corporate helpdesk, calm precision",
+
+  "typography": {
+    "headings": {
+      "font_family": "Plus Jakarta Sans, Cabinet Grotesk, sans-serif",
+      "weights": ["font-semibold (600)", "font-bold (700)", "font-extrabold (800)"],
+      "h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900",
+      "h2": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900",
+      "h3": "text-lg sm:text-xl font-semibold text-slate-800",
+      "h4": "text-base sm:text-lg font-medium text-slate-800"
+    },
+    "body": {
+      "font_family": "Inter, IBM Plex Sans, sans-serif",
+      "standard": "text-sm sm:text-base text-slate-600 leading-relaxed",
+      "small_label": "text-xs uppercase tracking-wider font-semibold text-slate-500",
+      "tabular_nums": "font-mono tabular-nums text-slate-800"
+    }
+  },
+
+  "colors": {
+    "background": {
+      "page": "bg-slate-50",
+      "surface": "bg-white",
+      "surface_muted": "bg-slate-100/80",
+      "header_glass": "bg-white/90 backdrop-blur-md border-b border-slate-200"
+    },
+    "brand_primary": {
+      "main": "#2563EB",
+      "hover": "#1D4ED8",
+      "light": "#EFF6FF",
+      "border": "#BFDBFE",
+      "text": "#1E40AF"
+    },
+    "status": {
+      "success_resolved": {
+        "bg": "bg-emerald-50",
+        "text": "text-emerald-700",
+        "border": "border-emerald-200",
+        "dot": "bg-emerald-500"
+      },
+      "warning_pending_lowstock": {
+        "bg": "bg-amber-50",
+        "text": "text-amber-800",
+        "border": "border-amber-200",
+        "dot": "bg-amber-500"
+      },
+      "critical_urgent_outstock": {
+        "bg": "bg-rose-50",
+        "text": "text-rose-700",
+        "border": "border-rose-200",
+        "dot": "bg-rose-500"
+      },
+      "info_in_progress": {
+        "bg": "bg-blue-50",
+        "text": "text-blue-700",
+        "border": "border-blue-200",
+        "dot": "bg-blue-500"
+      }
+    },
+    "neutrals": {
+      "text_heading": "text-slate-900",
+      "text_body": "text-slate-600",
+      "text_muted": "text-slate-400",
+      "border_hairline": "border-slate-200",
+      "border_darker": "border-slate-300"
+    }
+  },
+
+  "layout_and_structure": {
+    "login_screen": {
+      "description": "Simplified instant ID-based login for quick access (no password needed as requested). Includes one-click quick switch employee/admin avatars (Alex - Tech IT Admin, Sam - Tech IT Admin, Marie - Commercial, Lucas - Logistique, Sophie - RH) and manual ID input.",
+      "visual": "Centered light-blue floating card with crisp shadow-sm, corporate IT badge icon, recent user chips for quick test logins."
+    },
+    "header_navigation": {
+      "description": "Sticky top bar containing the app title 'Alex & Co IT Helpdesk & Stock', current user badge with role indicator ('Support Tech Admin' or 'Employé'), Quick ID Switcher, Quick Ticket CTA button, and system health status dot.",
+      "height": "h-16",
+      "classes": "fixed top-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-6 flex items-center justify-between"
+    },
+    "sidebar_navigation": {
+      "description": "Left sidebar navigation with tab items matching user role: Employee sees 'Mes Tickets', 'Nouveau Ticket', 'Mon Profil'; Admin sees 'Tableau de Bord', 'Tous les Tickets', 'Gestion du Stock', 'Alertes & Rappels Date', 'Logs de Connexion'.",
+      "width": "w-64",
+      "responsive": "Collapsible to icon rail or slide-over menu on mobile."
+    },
+    "dashboard_grid": {
+      "mode": "High Density Grid (MODE B)",
+      "kpi_strip": "4-column grid (grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6) with metrics: Tickets Ouverts, Stock en Alerte, Delai Moyen de Résolution, Connexions Aujourd'hui.",
+      "main_section": "2-column grid (lg:grid-cols-3 gap-6) where Col-span-2 holds Ticket Table / Stock Table and Col-span-1 holds Real-time Alerts Panel & Connexion Logs feed."
+    }
+  },
+
+  "key_features_to_implement": {
+    "login_by_id": {
+      "requirement": "Login strictly by Employee ID without password.",
+      "preset_accounts": [
+        {"id": "EMP-ALEX", "name": "Alex", "role": "admin", "title": "Technicien Support IT Admin"},
+        {"id": "EMP-SAM", "name": "Sam", "role": "admin", "title": "Technicien Support IT Admin"},
+        {"id": "EMP-001", "name": "Marie Dupont", "role": "employee", "title": "Responsable Ventes"},
+        {"id": "EMP-002", "name": "Lucas Martin", "role": "employee", "title": "Opérateur Logistique"},
+        {"id": "EMP-003", "name": "Sophie Bernard", "role": "employee", "title": "Chargée RH"}
+      ]
+    },
+    "ticket_management": {
+      "fields": ["id", "title", "description", "category", "priority", "status", "creator_id", "creator_name", "created_at", "updated_at", "assigned_to", "resolution_notes"],
+      "categories": ["Matériel / PC", "Réseau / Wifi", "Logiciel / Licence", "Imprimante / Périphérique", "Accès / Identifiants", "Autre"],
+      "priorities": ["Basse", "Moyenne", "Haute", "Urgente"],
+      "statuses": ["Nouveau", "En cours", "En attente pièce", "Résolu", "Fermé"],
+      "employee_view": "Can view own tickets, see status timeline, submit new ticket modal with instant dropdown selection.",
+      "admin_view": "Can filter all tickets by status/priority/category, search by keyword, assign ticket to Alex or Sam, update status, write resolution notes."
+    },
+    "inventory_stock_management": {
+      "fields": ["id", "name", "category", "quantity", "min_threshold", "unit", "location", "last_restock_date", "expiry_or_maintenance_date", "notes"],
+      "categories": ["Câbles & Adaptateurs", "Écrans & Moniteurs", "Claviers & Souris", "PC Portable / Tour", "Composants / RAM / SSD", "Toners & Cartouches", "Casques & Audio"],
+      "alert_system": "Automatic visual alert highlight (badge + warning banner) when quantity <= min_threshold or when expiration/maintenance date is within 7 days.",
+      "actions": "Add new item, quick +1/-1 quantity buttons, edit item, delete item, filter low stock items, date filter."
+    },
+    "date_alerts_reminders": {
+      "description": "Stock & maintenance alert reminders sorted by date (e.g. printer maintenance due, software license renewal, warranty expiry, scheduled hardware audits).",
+      "features": ["Calendar/Timeline view", "Add custom date reminder", "Filter by upcoming 7 days / 30 days"]
+    },
+    "employee_connection_logs": {
+      "description": "Real-time log table tracking every employee connection by ID.",
+      "fields": ["id", "employee_id", "employee_name", "role", "login_time", "ip_address", "device_type", "status"]
+    }
+  },
+
+  "visual_enhancers": {
+    "card_style": "Flat solid white container with 1px hairline border (`border-slate-200`), rounded-lg, shadow-sm hover:border-blue-300 transition-colors duration-200",
+    "badge_style": "Pill badge with light background, matching 600 text color, and subtle 1px border. Status dot indicator inside.",
+    "table_style": "High-density clean table with light slate header (`bg-slate-50 text-slate-700 font-semibold text-xs uppercase tracking-wider`), hover row highlight (`hover:bg-slate-50/80`), and explicit cell padding (`py-3.5 px-4`).",
+    "interactive_feedback": "Hover scale buttons (`hover:bg-blue-700 active:scale-[0.98]`), focus rings (`focus:ring-2 focus:ring-blue-500 focus:outline-none`), and toast alerts using Sonner."
+  },
+
+  "image_urls": [
+    {
+      "category": "hero_office",
+      "url": "https://images.unsplash.com/photo-1551434678-e076c223a692?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwxfHxpdCUyMHN1cHBvcnQlMjBoZWxwZGVzayUyMG9mZmljZSUyMHRlY2hub2xvZ3l8ZW58MHx8fHwxNzkxNzk3ODE3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "IT Support Technician working at dual screen workstation"
+    },
+    {
+      "category": "open_office",
+      "url": "https://images.unsplash.com/photo-1560264280-88b68371db39?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHwyfHxpdCUyMHN1cHBvcnQlMjBoZWxwZGVzayUyMG9mZmljZSUyMHRlY2hub2xvZ3l8ZW58MHx8fHwxNzkxNzk3ODE3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern corporate office space"
+    },
+    {
+      "category": "workspace",
+      "url": "https://images.unsplash.com/photo-1560264418-c4445382edbc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjh8MHwxfHNlYXJjaHw0fHxpdCUyMHN1cHBvcnQlMjBoZWxwZGVzayUyMG9mZmljZSUyMHRlY2hub2xvZ3l8ZW58MHx8fHwxNzkxNzk3ODE3fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Employee at desk creating ticket"
+    }
+  ],
+
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
+    "data_testid_rule": "ALL interactive components (inputs, buttons, select dropdown options, table rows, tab triggers, modal triggers) MUST contain clear kebab-case data-testid attributes (e.g., data-testid='login-id-input', data-testid='login-submit-button', data-testid='create-ticket-button', data-testid='ticket-category-select', data-testid='stock-item-add-button', data-testid='stock-quick-add-EMP-001', data-testid='role-switcher-admin').",
+    "npm_start_requirement": "Ensure the application can be run seamlessly with 'npm start' or simple start scripts as requested by Alex. Keep backend/mock storage resilient with local storage persistence + initial pre-populated realistic data.",
+    "hover_contrast_rule": "Always explicitly define text color on hover (e.g., hover:bg-blue-700 hover:text-white). Never rely on default text color inheritance for active states.",
+    "dropdown_background_rule": "NEVER use transparent backgrounds on select dropdowns, popovers, or floating menus. Always use solid white bg (`bg-white border border-slate-200 shadow-lg z-50`).",
+    "prepopulated_mock_data": "Include rich initial data: 8+ tickets in various statuses/priorities, 12+ inventory items (with 3 items below threshold triggering alerts, e.g., 'Câbles HDMI 2m', 'Toners HP LaserJet', 'Souris Ergonomiques'), 10+ connection log entries, and 4 date-based reminders.",
+    "toast_notifications": "Use Sonner for toasts upon ticket creation, ticket assignment, status updates, stock additions/adjustments, and log exports."
+  }
+}
