@@ -1,7 +1,8 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 export const API = `${BACKEND_URL}/api`;
+export const FILE_BASE = BACKEND_URL;
 
 export const api = axios.create({ baseURL: API });
 
@@ -29,4 +30,9 @@ export const endpoints = {
   updateAsset: (id, data) => api.patch(`/assets/${id}`, data),
   deleteAsset: (id) => api.delete(`/assets/${id}`),
   exportAssets: () => api.get("/assets/export", { responseType: "blob" }),
+  setupNeeded: () => api.get("/setup-needed"),
+  setup: (data) => api.post("/setup", data),
+  uploadFile: (formData) => api.post("/upload", formData),
+  importInventory: (formData) => api.post("/inventory/import", formData),
+  inventoryTemplate: () => api.get("/inventory/template", { responseType: "blob" }),
 };

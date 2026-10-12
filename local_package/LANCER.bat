@@ -1,8 +1,8 @@
 @echo off
-title Alex & Co - IT Helpdesk & Stock
+title Support IT - Helpdesk & Stock
 cd /d "%~dp0"
 echo ============================================================
-echo   Alex ^& Co - Plateforme IT Helpdesk ^& Stock (local)
+echo   Support IT - Plateforme Helpdesk ^& Stock (local)
 echo ============================================================
 echo.
 echo [1/2] Installation (automatique, la 1ere fois seulement)...

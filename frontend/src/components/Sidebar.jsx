@@ -36,7 +36,7 @@ export const Sidebar = ({ active, setActive }) => {
           <Headset className="h-5 w-5 text-white" />
         </div>
         <div className="leading-tight">
-          <div className="font-display font-extrabold text-slate-900 text-sm">Alex & Co</div>
+          <div className="font-display font-extrabold text-slate-900 text-sm">Support IT</div>
           <div className="text-[10px] text-slate-400 uppercase tracking-wider">Helpdesk & Stock</div>
         </div>
       </div>

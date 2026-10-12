@@ -3,12 +3,13 @@ import { endpoints } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send } from "lucide-react";
+import { Send, Paperclip, X } from "lucide-react";
 
 export const NewTicketView = ({ onDone }) => {
   const { user } = useAuth();
   const [meta, setMeta] = useState({ ticket_categories: [], ticket_priorities: [] });
   const [form, setForm] = useState({ title: "", description: "", category: "", priority: "Moyenne" });
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { endpoints.meta().then((r) => setMeta(r.data)).catch(() => {}); }, []);
@@ -17,8 +18,16 @@ export const NewTicketView = ({ onDone }) => {
     if (!form.title || !form.description || !form.category || !form.priority) return toast.error("Remplis tous les champs");
     setSaving(true);
     try {
-      await endpoints.createTicket({ ...form, creator_id: user.id });
+      let attachment = null;
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const up = await endpoints.uploadFile(fd);
+        attachment = up.data;
+      }
+      await endpoints.createTicket({ ...form, creator_id: user.id, attachment });
       toast.success("Ticket créé avec succès");
+      setFile(null);
       onDone?.();
     } catch { toast.error("Erreur lors de la création"); } finally { setSaving(false); }
   };
@@ -55,6 +64,20 @@ export const NewTicketView = ({ onDone }) => {
               </SelectContent>
             </Select>
           </div>
+        </div>
+        <div>
+          <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">Pièce jointe (optionnel)</label>
+          {file ? (
+            <div className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <span className="flex items-center gap-2 text-sm text-slate-700 truncate"><Paperclip className="h-4 w-4 text-slate-400" />{file.name}</span>
+              <button type="button" data-testid="new-ticket-remove-file" onClick={() => setFile(null)} className="text-slate-400 hover:text-rose-600"><X className="h-4 w-4" /></button>
+            </div>
+          ) : (
+            <label className="mt-1.5 flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-500 cursor-pointer hover:border-blue-400 hover:text-blue-600 transition-colors">
+              <Paperclip className="h-4 w-4" /> Ajouter un fichier (capture, PDF, photo...)
+              <input data-testid="new-ticket-file" type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            </label>
+          )}
         </div>
         <button data-testid="new-ticket-submit" onClick={submit} disabled={saving} className="h-11 px-5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] transition-colors flex items-center gap-2 disabled:opacity-60">
           <Send className="h-4 w-4" /> Envoyer le ticket

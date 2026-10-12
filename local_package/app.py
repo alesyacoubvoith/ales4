@@ -4,7 +4,7 @@ Alex & Co — IT Helpdesk & Stock (version locale "tout-en-un").
 - Sert aussi l'interface web (dossier web/).
 Lancement : py -m uvicorn app:app --host 0.0.0.0 --port 8001
 """
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -15,11 +15,14 @@ from datetime import datetime, timezone, timedelta
 import json
 import io
 import uuid
+import shutil
 import threading
 
 BASE = Path(__file__).parent
 DATA_FILE = BASE / "data.json"
 WEB_DIR = BASE / "web"
+UPLOAD_DIR = BASE / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
 _lock = threading.Lock()
 
 
@@ -133,12 +136,11 @@ def load():
     global DB
     if DATA_FILE.exists():
         DB = json.loads(DATA_FILE.read_text(encoding="utf-8"))
-        if not DB.get("users"):
-            DB["users"] = [dict(a) for a in SEED_ADMINS]
-            save()
+        DB.setdefault("users", [])
         DB.setdefault("assets", [])
+        DB.setdefault("files", [])
     else:
-        seed()
+        save()
 
 
 load()
@@ -189,6 +191,12 @@ class TicketCreate(BaseModel):
     category: str
     priority: str
     creator_id: str
+    attachment: Optional[dict] = None
+
+
+class SetupInput(BaseModel):
+    id: str
+    name: str
 
 
 class TicketUpdate(BaseModel):
@@ -269,6 +277,35 @@ def delete_user(user_id: str):
     return {"ok": True}
 
 
+@api.get("/setup-needed")
+def setup_needed():
+    return {"needed": len(DB["users"]) == 0}
+
+
+@api.post("/setup")
+def setup_admin(payload: SetupInput):
+    if len(DB["users"]) > 0:
+        raise HTTPException(status_code=400, detail="La plateforme est déjà configurée")
+    uid = payload.id.strip().upper()
+    if not uid or not payload.name.strip():
+        raise HTTPException(status_code=400, detail="ID et nom requis")
+    doc = {"id": uid, "name": payload.name.strip(), "role": "admin",
+           "title": "Administrateur", "can_access_parc": True}
+    DB["users"].append(doc)
+    save()
+    return {"user": doc}
+
+
+@api.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    ext = Path(file.filename or "").suffix
+    fname = f"{new_id()}{ext}"
+    dest = UPLOAD_DIR / fname
+    with dest.open("wb") as out:
+        shutil.copyfileobj(file.file, out)
+    return {"name": file.filename, "url": f"/api/uploads/{fname}", "size": dest.stat().st_size}
+
+
 @api.post("/auth/login")
 def login(payload: LoginInput, request: Request):
     uid = payload.employee_id.strip().upper()
@@ -301,7 +338,8 @@ def create_ticket(p: TicketCreate):
     doc = {"id": new_id(), "title": p.title, "description": p.description, "category": p.category,
            "priority": p.priority, "status": "Nouveau", "creator_id": p.creator_id,
            "creator_name": creator["name"] if creator else p.creator_id, "assigned_to": None,
-           "resolution_notes": "", "created_at": now_iso(), "updated_at": now_iso()}
+           "resolution_notes": "", "attachment": p.attachment,
+           "created_at": now_iso(), "updated_at": now_iso()}
     DB["tickets"].insert(0, doc)
     save()
     return doc
@@ -357,6 +395,80 @@ def delete_item(item_id: str):
         raise HTTPException(status_code=404, detail="Article introuvable")
     save()
     return {"ok": True}
+
+
+@api.get("/inventory/template")
+def inventory_template():
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Stock"
+    ws.append(["Nom", "Catégorie", "Quantité", "Seuil d'alerte", "Unité", "Emplacement"])
+    ws.append(["Câbles HDMI 2m", "Câbles & Adaptateurs", 10, 5, "unité", "Armoire A1"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=modele-stock.xlsx"},
+    )
+
+
+@api.post("/inventory/import")
+async def import_inventory(file: UploadFile = File(...)):
+    from openpyxl import load_workbook
+    try:
+        wb = load_workbook(file.file, read_only=True, data_only=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Fichier Excel illisible (.xlsx attendu)")
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return {"imported": 0}
+    header = [str(c).strip().lower() if c is not None else "" for c in rows[0]]
+
+    def col(*names):
+        for n in names:
+            for i, h in enumerate(header):
+                if n in h:
+                    return i
+        return None
+
+    ci = {"name": col("nom", "name"), "category": col("catég", "categ", "cat"),
+          "quantity": col("quant", "qté", "qte"), "threshold": col("seuil", "alerte", "min"),
+          "unit": col("unité", "unite", "unit"), "location": col("emplace", "lieu", "location")}
+    if ci["name"] is None:
+        raise HTTPException(status_code=400, detail="Colonne 'Nom' introuvable")
+
+    def val(row, key, default=""):
+        idx = ci[key]
+        if idx is None or idx >= len(row) or row[idx] is None:
+            return default
+        return row[idx]
+
+    def to_int(x):
+        try:
+            return int(float(x))
+        except Exception:
+            return 0
+
+    count = 0
+    for row in rows[1:]:
+        name = val(row, "name")
+        if not name or not str(name).strip():
+            continue
+        DB["inventory"].append({"id": new_id(), "name": str(name).strip(),
+                                "category": str(val(row, "category", "Autre")).strip() or "Autre",
+                                "quantity": to_int(val(row, "quantity", 0)),
+                                "min_threshold": to_int(val(row, "threshold", 0)),
+                                "unit": str(val(row, "unit", "unité")).strip() or "unité",
+                                "location": str(val(row, "location", "")).strip(),
+                                "maintenance_date": None, "notes": "", "last_restock_date": now_iso()})
+        count += 1
+    if count:
+        save()
+    return {"imported": count}
 
 
 @api.get("/reminders")
@@ -471,6 +583,7 @@ def stats():
 
 
 app.include_router(api)
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
 

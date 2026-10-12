@@ -4,11 +4,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { endpoints } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { Paperclip, X } from "lucide-react";
 
 export const TicketModal = ({ open, onClose, onCreated }) => {
   const { user } = useAuth();
   const [meta, setMeta] = useState({ ticket_categories: [], ticket_priorities: [] });
   const [form, setForm] = useState({ title: "", description: "", category: "", priority: "Moyenne" });
+  const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -21,9 +23,17 @@ export const TicketModal = ({ open, onClose, onCreated }) => {
     }
     setSaving(true);
     try {
-      await endpoints.createTicket({ ...form, creator_id: user.id });
+      let attachment = null;
+      if (file) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const up = await endpoints.uploadFile(fd);
+        attachment = up.data;
+      }
+      await endpoints.createTicket({ ...form, creator_id: user.id, attachment });
       toast.success("Ticket créé avec succès");
       setForm({ title: "", description: "", category: "", priority: "Moyenne" });
+      setFile(null);
       onCreated?.();
       onClose();
     } catch {
@@ -88,6 +98,20 @@ export const TicketModal = ({ open, onClose, onCreated }) => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wider font-semibold text-slate-500">Pièce jointe (optionnel)</label>
+            {file ? (
+              <div className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="flex items-center gap-2 text-sm text-slate-700 truncate"><Paperclip className="h-4 w-4 text-slate-400" />{file.name}</span>
+                <button type="button" data-testid="ticket-modal-remove-file" onClick={() => setFile(null)} className="text-slate-400 hover:text-rose-600"><X className="h-4 w-4" /></button>
+              </div>
+            ) : (
+              <label className="mt-1.5 flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-500 cursor-pointer hover:border-blue-400 hover:text-blue-600 transition-colors">
+                <Paperclip className="h-4 w-4" /> Ajouter un fichier
+                <input data-testid="ticket-modal-file" type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              </label>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">

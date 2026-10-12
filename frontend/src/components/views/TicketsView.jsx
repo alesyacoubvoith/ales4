@@ -6,7 +6,8 @@ import { formatDateTime } from "@/lib/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, Inbox } from "lucide-react";
+import { Search, Inbox, Paperclip, Download } from "lucide-react";
+import { FILE_BASE } from "@/lib/api";
 
 const STATUSES = ["Nouveau", "En cours", "En attente pièce", "Résolu", "Fermé"];
 const ASSIGNEES = [{ id: "EMP-ALEX", name: "Alex" }, { id: "EMP-SAM", name: "Sam" }];
@@ -152,6 +153,11 @@ const TicketDetail = ({ ticket, adminMode, onClose, onUpdated }) => {
             <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs text-slate-600">{ticket.category}</span>
           </div>
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm text-slate-700">{ticket.description}</div>
+          {ticket.attachment && (
+            <a href={`${FILE_BASE}${ticket.attachment.url}`} target="_blank" rel="noreferrer" data-testid="ticket-attachment-link" className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100 transition-colors">
+              <Paperclip className="h-4 w-4" /><span className="truncate flex-1">{ticket.attachment.name || "Pièce jointe"}</span><Download className="h-4 w-4" />
+            </a>
+          )}
           <div className="grid grid-cols-2 gap-3 text-xs text-slate-500">
             <div><span className="font-semibold text-slate-600">Demandeur:</span> {ticket.creator_name}</div>
             <div><span className="font-semibold text-slate-600">Créé:</span> {formatDateTime(ticket.created_at)}</div>

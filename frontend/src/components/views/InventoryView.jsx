@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { endpoints } from "@/lib/api";
 import { formatDate } from "@/lib/ui";
 import { StatCard } from "@/components/Bits";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Boxes, AlertTriangle, Plus, Minus, Pencil, Trash2, PackageCheck, PackageX } from "lucide-react";
+import { Boxes, AlertTriangle, Plus, Minus, Pencil, Trash2, PackageCheck, PackageX, Upload, FileDown } from "lucide-react";
 
 const emptyForm = { name: "", category: "", quantity: 0, min_threshold: 0, unit: "unité", location: "", maintenance_date: "", notes: "" };
 
@@ -20,6 +20,35 @@ export const InventoryView = () => {
     const r = await endpoints.inventory();
     setItems(r.data);
   }, []);
+
+  const fileRef = useRef(null);
+
+  const downloadTemplate = async () => {
+    try {
+      const res = await endpoints.inventoryTemplate();
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url; a.download = "modele-stock.xlsx";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch { toast.error("Téléchargement impossible"); }
+  };
+
+  const onImport = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("file", f);
+    try {
+      const r = await endpoints.importInventory(fd);
+      toast.success(`${r.data.imported} article(s) importé(s)`);
+      load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Import impossible");
+    } finally {
+      e.target.value = "";
+    }
+  };
 
   useEffect(() => {
     load();
@@ -69,6 +98,13 @@ export const InventoryView = () => {
           >
             {showLow ? "Voir tout" : "Stock bas"}
           </button>
+          <button data-testid="stock-template-button" onClick={downloadTemplate} className="h-10 px-3 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2">
+            <FileDown className="h-4 w-4" /> Modèle
+          </button>
+          <button data-testid="stock-import-button" onClick={() => fileRef.current?.click()} className="h-10 px-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-2">
+            <Upload className="h-4 w-4" /> Importer Excel
+          </button>
+          <input ref={fileRef} data-testid="stock-import-input" type="file" accept=".xlsx" className="hidden" onChange={onImport} />
           <button data-testid="add-item-button" onClick={openAdd} className="h-10 px-4 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] transition-colors flex items-center gap-2">
             <Plus className="h-4 w-4" /> Ajouter
           </button>

@@ -38,7 +38,7 @@ export default function Login() {
             <Headset className="h-6 w-6 text-white" />
           </div>
           <div>
-            <div className="font-display font-extrabold text-lg leading-tight">Alex & Co</div>
+            <div className="font-display font-extrabold text-lg leading-tight">Support IT</div>
             <div className="text-xs text-blue-200 tracking-wider uppercase">IT Helpdesk & Stock</div>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function Login() {
             <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center">
               <Headset className="h-5 w-5 text-white" />
             </div>
-            <div className="font-display font-extrabold text-lg">Alex & Co IT Helpdesk</div>
+            <div className="font-display font-extrabold text-lg">Support IT · Helpdesk</div>
           </div>
           <h2 className="font-display text-2xl font-bold text-slate-900">Connexion</h2>
           <p className="mt-1 text-sm text-slate-500">Saisis ton identifiant employé pour accéder à la plateforme.</p>
