@@ -1,5 +1,13 @@
 {
-  "users": [],
+  "users": [
+    {
+      "id": "ADMIN",
+      "name": "Test Admin",
+      "role": "admin",
+      "title": "Administrateur",
+      "can_access_parc": true
+    }
+  ],
   "tickets": [],
   "inventory": [],
   "reminders": [],
@@ -44,5 +52,6 @@
       "id": "64401703-0a29-4672-b9be-f61e795cdc01",
       "created_at": "2026-11-02T13:16:27.871167+00:00"
     }
-  ]
+  ],
+  "files": []
 }
