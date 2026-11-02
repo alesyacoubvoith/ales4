@@ -20,10 +20,14 @@ import shutil
 import threading
 
 BASE = Path(__file__).parent
-DATA_FILE = BASE / "data.json"
+# En local : données à côté de l'application. En ligne : DATA_DIR peut pointer
+# vers un volume persistant pour conserver les données entre deux déploiements.
+DATA_DIR = Path(os.environ.get("DATA_DIR") or BASE)
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATA_FILE = DATA_DIR / "data.json"
 WEB_DIR = BASE / "web"
-UPLOAD_DIR = BASE / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR = DATA_DIR / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 _lock = threading.Lock()
 
 
