@@ -1,0 +1,48 @@
+{
+  "users": [],
+  "tickets": [],
+  "inventory": [],
+  "reminders": [],
+  "logs": [],
+  "assets": [
+    {
+      "name": "PC-COMPTA-01",
+      "type": "Ordinateur",
+      "brand": "Dell",
+      "model": "Latitude 5420",
+      "serial": "DL-5420-01",
+      "assigned_to": "Paul Martin",
+      "status": "En panne",
+      "purchase_date": "2024-03-15",
+      "notes": "Service compta",
+      "id": "2c68e22c-1851-415f-8696-076aa1013041",
+      "created_at": "2026-11-02T13:16:27.834554+00:00"
+    },
+    {
+      "name": "IMP-RH",
+      "type": "Imprimante",
+      "brand": "Brother",
+      "model": "MFC-L2710",
+      "serial": "BR-2710-09",
+      "assigned_to": "RH",
+      "status": "En panne",
+      "purchase_date": "2023-01-05",
+      "notes": "",
+      "id": "54f0bf2b-2a1a-45ed-ba66-b4cfe103f824",
+      "created_at": "2026-11-02T13:16:27.834571+00:00"
+    },
+    {
+      "name": "SWITCH-01",
+      "type": "Ordinateur",
+      "brand": "Cisco",
+      "model": "",
+      "serial": "",
+      "assigned_to": "",
+      "status": "En service",
+      "purchase_date": null,
+      "notes": "",
+      "id": "64401703-0a29-4672-b9be-f61e795cdc01",
+      "created_at": "2026-11-02T13:16:27.871167+00:00"
+    }
+  ]
+}
