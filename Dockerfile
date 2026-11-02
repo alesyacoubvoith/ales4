@@ -4,7 +4,7 @@ FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=80
+    PORT=8080
 
 WORKDIR /app
 
@@ -26,6 +26,6 @@ RUN mkdir -p uploads \
     && chown -R appuser:appuser /app
 USER appuser
 
-EXPOSE 80
+EXPOSE 8080
 
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
