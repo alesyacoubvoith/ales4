@@ -140,6 +140,11 @@ def seed():
 
 def load():
     global DB
+    if not DATA_FILE.exists() and DATA_DIR != BASE:
+        # Premier démarrage sur un volume vide : on repart du fichier livré.
+        seed_source = BASE / "data.json"
+        if seed_source.exists():
+            shutil.copyfile(seed_source, DATA_FILE)
     if DATA_FILE.exists():
         DB = json.loads(DATA_FILE.read_text(encoding="utf-8"))
         DB.setdefault("users", [])
