@@ -1,28 +1,9 @@
 {
-  "users": [
-    {
-      "id": "ADMIN",
-      "name": "Test Admin",
-      "role": "admin",
-      "title": "Administrateur",
-      "can_access_parc": true
-    }
-  ],
+  "users": [],
   "tickets": [],
   "inventory": [],
   "reminders": [],
-  "logs": [
-    {
-      "id": "be119526-d9f2-499f-a022-81dacba0b727",
-      "employee_id": "ADMIN",
-      "employee_name": "Test Admin",
-      "role": "admin",
-      "login_time": "2026-11-02T13:23:52.940281+00:00",
-      "ip_address": "127.0.0.1",
-      "device_type": "Desktop",
-      "status": "Succès"
-    }
-  ],
+  "logs": [],
   "assets": [
     {
       "name": "PC-COMPTA-01",
@@ -63,6 +44,5 @@
       "id": "64401703-0a29-4672-b9be-f61e795cdc01",
       "created_at": "2026-11-02T13:16:27.871167+00:00"
     }
-  ],
-  "files": []
+  ]
 }
