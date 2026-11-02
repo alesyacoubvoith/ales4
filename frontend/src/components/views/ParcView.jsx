@@ -125,7 +125,18 @@ export const ParcView = () => {
           <h2 className="font-display text-2xl font-bold text-slate-900">Parc informatique</h2>
           <p className="text-sm text-slate-500">{assets.length} matériels · ordinateurs, imprimantes, tablettes</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button data-testid="parc-template-button" onClick={downloadTemplate} title="Télécharger le modèle Excel à remplir" className="h-10 px-3 rounded-lg border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 active:scale-[0.98] transition-colors flex items-center gap-2">
+            <FileDown className="h-4 w-4" /> Modèle
+          </button>
+          {isAdmin && (
+            <>
+              <button data-testid="import-parc-button" onClick={() => fileRef.current?.click()} disabled={importing} title="Importer le parc depuis un fichier Excel" className="h-10 px-4 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 text-sm font-semibold hover:bg-violet-100 active:scale-[0.98] transition-colors flex items-center gap-2 disabled:opacity-60">
+                <Upload className="h-4 w-4" /> {importing ? "Import..." : "Importer Excel"}
+              </button>
+              <input ref={fileRef} data-testid="import-parc-input" type="file" accept=".xlsx,.xlsm" className="hidden" onChange={onImportFile} />
+            </>
+          )}
           <button data-testid="export-parc-button" onClick={exportExcel} disabled={exporting} className="h-10 px-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 active:scale-[0.98] transition-colors flex items-center gap-2 disabled:opacity-60">
             <Download className="h-4 w-4" /> Exporter Excel
           </button>
