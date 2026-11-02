@@ -24,7 +24,10 @@ BASE = Path(__file__).parent
 # En local : données à côté de l'application. En ligne : DATA_DIR peut pointer
 # vers un volume persistant pour conserver les données entre deux déploiements.
 DATA_DIR = Path(os.environ.get("DATA_DIR") or BASE)
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    DATA_DIR = BASE
 DATA_FILE = DATA_DIR / "data.json"
 WEB_DIR = BASE / "web"
 UPLOAD_DIR = DATA_DIR / "uploads"
