@@ -670,6 +670,8 @@ async def import_assets(file: UploadFile = File(...)):
     except Exception:
         raise HTTPException(status_code=400, detail="Fichier Excel illisible (.xlsx attendu)")
     raw = list(wb.active.iter_rows(values_only=True))
+    if not raw:
+        raise HTTPException(status_code=400, detail="Fichier Excel vide : aucune ligne détectée")
     docs = _parse_asset_rows(raw)
 
     by_name = {str(a.get("name", "")).strip().lower(): a for a in DB["assets"]}

@@ -86,7 +86,7 @@ def test_reimport_updates_without_duplicates(client):
 
 @pytest.mark.parametrize("rows,fragment", [
     ([["Couleur", "Marque"], ["Noir", "Dell"]], "Nom"),
-    ([], "Nom"),
+    ([], "vide"),
 ])
 def test_missing_name_column_is_rejected(client, rows, fragment):
     r = upload(client, xlsx(rows))

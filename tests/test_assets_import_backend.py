@@ -69,7 +69,7 @@ class FakeDB:
         return self.cols.setdefault(name, FakeCollection())
 
     def __getitem__(self, name):
-        return getattr(self, name)
+        return self
 
 
 @pytest.fixture(scope="module")
