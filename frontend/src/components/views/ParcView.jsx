@@ -23,6 +23,8 @@ export const ParcView = () => {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef(null);
 
   const load = useCallback(async () => {
     const r = await endpoints.assets();
