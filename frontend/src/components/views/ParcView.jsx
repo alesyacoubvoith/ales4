@@ -83,6 +83,25 @@ export const ParcView = () => {
           <p className="text-sm text-slate-500">{assets.length} matériels · ordinateurs, imprimantes, tablettes</p>
         </div>
         <div className="flex gap-2">
+         {isAdmin && (
+  <>
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".csv,text/csv"
+      onChange={importCsv}
+      className="hidden"
+    />
+    <button
+      onClick={() => fileInputRef.current?.click()}
+      disabled={importing}
+      className="btn btn-primary"
+    >
+      <Upload size={16} />
+      {importing ? "Importation..." : "Importer CSV"}
+    </button>
+  </>
+)}
           <button data-testid="export-parc-button" onClick={exportExcel} disabled={exporting} className="h-10 px-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 active:scale-[0.98] transition-colors flex items-center gap-2 disabled:opacity-60">
             <Download className="h-4 w-4" /> Exporter Excel
           </button>
