@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api, endpoints } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { MonitorSmartphone, Monitor, Printer, Tablet, Download, Plus, Pencil, Trash2, Cpu } from "lucide-react";
+import { MonitorSmartphone, Monitor, Printer, Tablet, Download, Upload, Plus, Pencil, Trash2, Cpu } from "lucide-react";
 
 const TYPE_ICON = { Ordinateur: Monitor, Imprimante: Printer, Tablette: Tablet };
 const STATUS_STYLES = {
