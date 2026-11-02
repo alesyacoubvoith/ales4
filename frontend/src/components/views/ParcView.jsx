@@ -277,6 +277,35 @@ export const ParcView = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!importResult} onOpenChange={(o) => !o && setImportResult(null)}>
+        <DialogContent className="bg-white sm:max-w-md" data-testid="import-result-modal">
+          <DialogHeader><DialogTitle className="font-display text-xl">Import Excel terminé</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm text-slate-600">
+            <p className="text-slate-500 break-all">{importResult?.file}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-center">
+                <div className="text-2xl font-bold text-emerald-700 tabular-nums" data-testid="import-created-count">{importResult?.created ?? 0}</div>
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-emerald-700">Créés</div>
+              </div>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
+                <div className="text-2xl font-bold text-blue-700 tabular-nums" data-testid="import-updated-count">{importResult?.updated ?? 0}</div>
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-blue-700">Mis à jour</div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                <div className="text-2xl font-bold text-slate-600 tabular-nums" data-testid="import-skipped-count">{importResult?.skipped ?? 0}</div>
+                <div className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Ignorées</div>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500">
+              Les matériels dont le nom existe déjà ont été mis à jour au lieu d'être dupliqués. Les lignes sans nom ont été ignorées.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button data-testid="import-result-close" onClick={() => setImportResult(null)} className="h-10 px-5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] transition-colors">Fermer</button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
