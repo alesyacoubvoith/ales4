@@ -9,6 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Annotated
 from pydantic import BeforeValidator
+import re
 import uuid
 import io
 import requests
@@ -569,15 +570,17 @@ def _parse_asset_rows(raw):
         t = _norm(x)
         if not t:
             return ASSET_TYPES[0]
-        if "imprim" in t or "print" in t:
-            return "Imprimante"
-        if "tabl" in t or "ipad" in t:
-            return "Tablette"
-        if "ordi" in t or t in ("pc", "laptop", "portable") or "pc" in t:
-            return "Ordinateur"
         for at in ASSET_TYPES:
             if _norm(at) == t:
                 return at
+        if "imprim" in t or "print" in t:
+            return "Imprimante"
+        if "tablette" in t or "tablet" in t or "ipad" in t or "tab " in t:
+            return "Tablette"
+        if ("ordi" in t or "portable" in t or "laptop" in t or "desktop" in t
+                or "unite centrale" in t or t == "pc" or t.startswith("pc ")
+                or t.startswith("pc-") or re.search(r"\bpc\b", t)):
+            return "Ordinateur"
         return ASSET_TYPES[0]
 
     def norm_status(x):
