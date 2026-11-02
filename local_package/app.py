@@ -536,6 +536,161 @@ def export_assets():
     )
 
 
+@api.get("/assets/template")
+def assets_template():
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Parc informatique"
+    ws.append(["Nom", "Type", "Marque", "Modèle", "N° série", "Affecté à", "Statut", "Date d'achat", "Notes"])
+    ws.append(["PC-BUREAU-204", "Ordinateur", "Dell", "OptiPlex 7090", "DL7090-204",
+               "Marie Dupont", "En service", "2024-03-15", ""])
+    ws.append(["IMP-ETAGE2", "Imprimante", "HP", "LaserJet Pro M404", "HP-M404-02",
+               "Service commun", "En panne", "", ""])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=modele-parc-informatique.xlsx"},
+    )
+
+
+def _norm(text):
+    import unicodedata
+    s = unicodedata.normalize("NFKD", str(text or ""))
+    return "".join(c for c in s if not unicodedata.combining(c)).strip().lower()
+
+
+def _parse_asset_rows(raw):
+    """Transforme les lignes d'un classeur Excel en documents « assets »."""
+    from datetime import date as _date, datetime as _datetime
+    if not raw:
+        return []
+    header = [_norm(c) for c in raw[0]]
+
+    def col(*names):
+        for n in names:
+            for i, h in enumerate(header):
+                if h and n in h:
+                    return i
+        return None
+
+    mapping = {
+        "name": col("nom", "name", "materiel", "reference", "ref"),
+        "type": col("type", "categorie"),
+        "brand": col("marque", "brand", "fabricant", "constructeur"),
+        "model": col("modele", "model"),
+        "serial": col("serie", "serial", "sn", "num"),
+        "assigned_to": col("affecte", "utilisateur", "assigned", "personne", "detenteur"),
+        "status": col("statut", "status", "etat"),
+        "purchase_date": col("achat", "date"),
+        "notes": col("note", "commentaire", "remarque"),
+    }
+    if mapping["name"] is None:
+        raise HTTPException(status_code=400, detail="Colonne 'Nom' introuvable dans le fichier Excel")
+
+    def val(row, key):
+        idx = mapping[key]
+        if idx is None or idx >= len(row) or row[idx] is None:
+            return ""
+        return row[idx]
+
+    def norm_type(x):
+        t = _norm(x)
+        if not t:
+            return ASSET_TYPES[0]
+        if "imprim" in t or "print" in t:
+            return "Imprimante"
+        if "tabl" in t or "ipad" in t:
+            return "Tablette"
+        if "ordi" in t or t in ("pc", "laptop", "portable") or "pc" in t:
+            return "Ordinateur"
+        for at in ASSET_TYPES:
+            if _norm(at) == t:
+                return at
+        return ASSET_TYPES[0]
+
+    def norm_status(x):
+        s = _norm(x)
+        if not s:
+            return ASSET_STATUSES[0]
+        for st in ASSET_STATUSES:
+            if _norm(st) == s:
+                return st
+        if "panne" in s or "hs" in s:
+            return "En panne"
+        if "stock" in s:
+            return "En stock"
+        if "reform" in s:
+            return "Réformé"
+        return "En service"
+
+    def norm_date(x):
+        if x in (None, ""):
+            return None
+        if isinstance(x, (_datetime, _date)):
+            return x.date().isoformat() if isinstance(x, _datetime) else x.isoformat()
+        s = str(x).strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%m/%d/%Y", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(s.split(" ")[0], fmt).date().isoformat()
+            except ValueError:
+                continue
+        return None
+
+    docs = []
+    for row in raw[1:]:
+        name = val(row, "name")
+        if name is None or not str(name).strip():
+            continue
+        docs.append({
+            "name": str(name).strip(),
+            "type": norm_type(val(row, "type")),
+            "brand": str(val(row, "brand")).strip(),
+            "model": str(val(row, "model")).strip(),
+            "serial": str(val(row, "serial")).strip(),
+            "assigned_to": str(val(row, "assigned_to")).strip(),
+            "status": norm_status(val(row, "status")),
+            "purchase_date": norm_date(val(row, "purchase_date")),
+            "notes": str(val(row, "notes")).strip(),
+        })
+    return docs
+
+
+@api.post("/assets/import")
+async def import_assets(file: UploadFile = File(...)):
+    from openpyxl import load_workbook
+    try:
+        wb = load_workbook(io.BytesIO(await file.read()), read_only=True, data_only=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Fichier Excel illisible (.xlsx attendu)")
+    raw = list(wb.active.iter_rows(values_only=True))
+    docs = _parse_asset_rows(raw)
+
+    by_name = {str(a.get("name", "")).strip().lower(): a for a in DB["assets"]}
+    created, updated = 0, 0
+    for doc in docs:
+        key = doc["name"].lower()
+        current = by_name.get(key)
+        if current:
+            for k, v in doc.items():
+                if k != "notes" or v:
+                    current[k] = v
+            updated += 1
+        else:
+            doc.update({"id": new_id(), "created_at": now_iso()})
+            DB["assets"].append(doc)
+            by_name[key] = doc
+            created += 1
+    if created or updated:
+        save()
+    skipped = max(0, len(raw) - 1 - len(docs))
+    return {"imported": created + updated, "created": created, "updated": updated,
+            "skipped": skipped, "total": len(docs)}
+
+
 @api.post("/assets")
 def create_asset(p: AssetCreate):
     doc = p.model_dump()
