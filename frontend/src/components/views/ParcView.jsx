@@ -124,6 +124,69 @@ export const ParcView = () => {
             <tbody className="divide-y divide-slate-100">
               {shown.map((a) => {
                 const Icon = TYPE_ICON[a.type] || Cpu;
+      const importCsv = async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const content = (await file.text()).replace(/^\uFEFF/, "");
+    const lines = content.split(/\r?\n/).filter(line => line.trim());
+
+    if (lines.length < 2) {
+      alert("Le fichier CSV est vide.");
+      return;
+    }
+
+    const separator = lines[0].includes(";") ? ";" : ",";
+    const headers = lines[0].split(separator).map(h => h.trim().toLowerCase());
+
+    const findColumn = (...names) =>
+      headers.findIndex(h => names.includes(h));
+
+    const nameIndex = findColumn("nom", "nom / réf", "nomref", "reference");
+
+    if (nameIndex === -1) {
+      alert("La colonne Nom est introuvable dans le fichier.");
+      return;
+    }
+
+    setImporting(true);
+    let count = 0;
+
+    for (const line of lines.slice(1)) {
+      const values = line.split(separator).map(v => v.trim());
+      const get = (...names) => {
+        const index = findColumn(...names);
+        return index >= 0 ? values[index] || "" : "";
+      };
+
+      const name = values[nameIndex];
+      if (!name) continue;
+
+      await endpoints.createAsset({
+        name,
+        type: get("type"),
+        brand: get("marque"),
+        model: get("modèle", "modele"),
+        serial: get("n° série", "n serie", "numero de serie", "serial"),
+        assigned_to: get("affecté à", "affecte a", "assigned_to"),
+        status: get("statut", "status"),
+        purchase_date: get("date d'achat", "date achat", "purchase_date"),
+        notes: get("notes")
+      });
+
+      count++;
+    }
+
+    alert(count + " matériel(s) importé(s) !");
+    window.location.reload();
+  } catch (error) {
+    alert("Erreur pendant l'importation du fichier CSV.");
+  } finally {
+    setImporting(false);
+    event.target.value = "";
+  }
+};
                 return (
                   <tr key={a.id} data-testid={`asset-row-${a.id}`} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4">
