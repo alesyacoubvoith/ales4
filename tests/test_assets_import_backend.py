@@ -1,22 +1,34 @@
-"""Vérifie /api/assets/import et /api/assets/template du backend Mongo (faux client Mongo en mémoire)."""
+"""Import Excel du parc informatique — backend principal (backend/server.py + MongoDB simulé)."""
 import io
 import os
 import sys
+from pathlib import Path
 
-os.environ["MONGO_URL"] = "mongodb://fake"
-os.environ["DB_NAME"] = "test"
-sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent / ".." / "backend"))
-
-import motor.motor_asyncio as motor_asyncio
+import pytest
 from openpyxl import Workbook, load_workbook
+
+os.environ.setdefault("MONGO_URL", "mongodb://fake")
+os.environ.setdefault("DB_NAME", "test")
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
+
+import motor.motor_asyncio as motor_asyncio  # noqa: E402
+
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+MODELE = ["Nom", "Type", "Marque", "Modèle", "N° série", "Affecté à", "Statut", "Date d'achat", "Notes"]
+
+
+class _Result:
+    def __init__(self, matched_count=0, deleted_count=0):
+        self.matched_count = matched_count
+        self.deleted_count = deleted_count
 
 
 class FakeCursor:
     def __init__(self, docs):
         self.docs = list(docs)
 
-    def sort(self, *a, **k):
-        key = a[0] if a else None
+    def sort(self, key=None, *a, **k):
         if key:
             self.docs.sort(key=lambda d: str(d.get(key, "")))
         return self
@@ -39,22 +51,14 @@ class FakeCollection:
         for d in self.docs:
             if all(d.get(k) == v for k, v in q.items()):
                 d.update(update["$set"])
-
-                class R:
-                    matched_count = 1
-                return R()
-
-        class R:
-            matched_count = 0
-        return R()
+                return _Result(matched_count=1)
+        return _Result()
 
     async def count_documents(self, q):
         return len(self.docs)
 
     async def delete_one(self, q):
-        class R:
-            deleted_count = 0
-        return R()
+        return _Result()
 
 
 class FakeDB:
@@ -64,25 +68,17 @@ class FakeDB:
     def __getattr__(self, name):
         return self.cols.setdefault(name, FakeCollection())
 
-
-fake_db = FakeDB()
-
-
-class FakeClient:
-    def __init__(self, *a, **k):
-        pass
-
     def __getitem__(self, name):
-        return fake_db
+        return getattr(self, name)
 
 
-motor_asyncio.AsyncIOMotorClient = FakeClient
-
-from fastapi.testclient import TestClient  # noqa: E402
-import server  # noqa: E402
-
-client = TestClient(server.app)
-XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+@pytest.fixture(scope="module")
+def client():
+    db = FakeDB()
+    motor_asyncio.AsyncIOMotorClient = lambda *a, **k: db
+    from fastapi.testclient import TestClient
+    import server
+    return TestClient(server.app)
 
 
 def xlsx(rows):
@@ -94,37 +90,41 @@ def xlsx(rows):
     return buf.getvalue()
 
 
-r = client.get("/api/assets/template")
-assert r.status_code == 200, r.text
-header = [c.value for c in load_workbook(io.BytesIO(r.content)).active[1]]
-assert header == ["Nom", "Type", "Marque", "Modèle", "N° série", "Affecté à", "Statut", "Date d'achat", "Notes"], header
-print("OK template back:", header)
+def upload(client, data, name="parc.xlsx"):
+    return client.post("/api/assets/import", files={"file": (name, data, XLSX_MIME)})
 
-data = xlsx([
-    ["Nom", "Type", "Marque", "Modèle", "N° série", "Affecté à", "Statut", "Date d'achat", "Notes"],
-    ["PC-RH-01", "poste de travail", "Dell", "OptiPlex 3000", "DL-3000-01", "Sophie Bernard", "en service", "01/02/2025", "RH"],
-    ["TAB-CHANTIER", "iPad", "Apple", "iPad 10", "AP-10-04", "Lucas", "En stock", "", ""],
-])
-r = client.post("/api/assets/import", files={"file": ("p.xlsx", data, XLSX_MIME)})
-assert r.status_code == 200, r.text
-print("OK import back:", r.json())
-assert r.json()["created"] == 2
 
-assets = client.get("/api/assets").json()
-assert len(assets) == 2, assets
-pc = next(a for a in assets if a["name"] == "PC-RH-01")
-assert pc["type"] == "Ordinateur" and pc["purchase_date"] == "2025-02-01" and pc["status"] == "En service", pc
-tab = next(a for a in assets if a["name"] == "TAB-CHANTIER")
-assert tab["type"] == "Tablette" and tab["status"] == "En stock", tab
+def test_template_has_import_columns(client):
+    r = client.get("/api/assets/template")
+    assert r.status_code == 200, r.text
+    header = [c.value for c in load_workbook(io.BytesIO(r.content)).active[1]]
+    assert header == MODELE, header
 
-# ré-import : mise à jour
-data2 = xlsx([["Nom", "Statut", "Affecté à"], ["PC-RH-01", "En panne", "Paul"]])
-r = client.post("/api/assets/import", files={"file": ("p2.xlsx", data2, XLSX_MIME)})
-assert r.status_code == 200 and r.json()["updated"] == 1, r.text
-pc = next(a for a in client.get("/api/assets").json() if a["name"] == "PC-RH-01")
-assert pc["status"] == "En panne" and pc["assigned_to"] == "Paul", pc
 
-# fichier invalide
-r = client.post("/api/assets/import", files={"file": ("x.xlsx", b"nope", XLSX_MIME)})
-assert r.status_code == 400 and "illisible" in r.json()["detail"], r.text
-print("TOUS LES TESTS BACKEND MONGO OK")
+def test_import_then_update(client):
+    data = xlsx([
+        MODELE,
+        ["PC-RH-01", "poste de travail", "Dell", "OptiPlex 3000", "DL-3000-01", "Sophie Bernard",
+         "en service", "01/02/2025", "RH"],
+        ["TAB-CHANTIER", "iPad", "Apple", "iPad 10", "AP-10-04", "Lucas", "En stock", "", ""],
+    ])
+    r = upload(client, data)
+    assert r.status_code == 200, r.text
+    assert r.json()["created"] == 2, r.json()
+
+    assets = client.get("/api/assets").json()
+    pc = next(a for a in assets if a["name"] == "PC-RH-01")
+    assert (pc["type"], pc["status"], pc["purchase_date"]) == ("Ordinateur", "En service", "2025-02-01"), pc
+    tab = next(a for a in assets if a["name"] == "TAB-CHANTIER")
+    assert (tab["type"], tab["status"]) == ("Tablette", "En stock"), tab
+
+    r = upload(client, xlsx([["Nom", "Statut", "Affecté à"], ["PC-RH-01", "En panne", "Paul"]]))
+    assert r.status_code == 200 and r.json()["updated"] == 1, r.text
+    pc = next(a for a in client.get("/api/assets").json() if a["name"] == "PC-RH-01")
+    assert (pc["status"], pc["assigned_to"]) == ("En panne", "Paul"), pc
+
+
+def test_unreadable_file_is_rejected(client):
+    r = upload(client, b"nope", "x.xlsx")
+    assert r.status_code == 400
+    assert "illisible" in r.json()["detail"]
