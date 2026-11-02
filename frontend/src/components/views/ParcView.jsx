@@ -56,6 +56,48 @@ export const ParcView = () => {
 
   const remove = async (a) => { await endpoints.deleteAsset(a.id); toast.success("Matériel supprimé"); load(); };
 
+  const downloadTemplate = async () => {
+    try {
+      const res = await endpoints.assetsTemplate();
+      const url = URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "modele-parc-informatique.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Modèle Excel téléchargé");
+    } catch {
+      toast.error("Téléchargement du modèle impossible");
+    }
+  };
+
+  const onImportFile = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!/\.(xlsx|xlsm)$/i.test(f.name)) {
+      toast.error("Choisissez un fichier Excel .xlsx");
+      e.target.value = "";
+      return;
+    }
+    setImporting(true);
+    const fd = new FormData();
+    fd.append("file", f);
+    try {
+      const r = await endpoints.importAssets(fd);
+      const d = r.data || {};
+      setImportResult({ ...d, file: f.name });
+      toast.success(`${d.imported ?? 0} matériel(s) importé(s) depuis Excel`);
+      await load();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Import Excel impossible");
+    } finally {
+      setImporting(false);
+      e.target.value = "";
+    }
+  };
+
   const exportExcel = async () => {
     setExporting(true);
     try {
